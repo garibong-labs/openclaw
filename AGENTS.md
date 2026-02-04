@@ -1,7 +1,41 @@
-# Repository Guidelines
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Repository Overview
+
+**OpenClaw** is a personal AI assistant platform that runs locally and connects to multiple messaging channels (WhatsApp, Telegram, Slack, Discord, Signal, iMessage, Google Chat, Microsoft Teams, Matrix, etc.) through a unified gateway architecture.
 
 - Repo: https://github.com/openclaw/openclaw
+- Docs: https://docs.openclaw.ai
+- Runtime: Node 22+
 - GitHub issues/comments/PR comments: use literal multiline strings or `-F - <<'EOF'` (or $'...') for real newlines; never embed "\\n".
+
+## Architecture
+
+```
+WhatsApp / Telegram / Slack / Discord / Signal / iMessage / etc.
+               │
+               ▼
+┌───────────────────────────────┐
+│            Gateway            │  ← WebSocket control plane (src/gateway/)
+│       ws://127.0.0.1:18789    │
+└──────────────┬────────────────┘
+               │
+               ├─ Pi agent runtime (src/agents/) ← RPC-based agent execution
+               ├─ CLI (src/cli/) ← 100+ commands
+               ├─ Control UI + WebChat (ui/)
+               ├─ macOS menu bar app (apps/macos/)
+               └─ iOS/Android nodes (apps/ios/, apps/android/)
+```
+
+**Key Subsystems:**
+- **Gateway** (`src/gateway/`): WebSocket server, protocol definitions, RPC methods for config/send/skills/talk
+- **Channels** (`src/telegram/`, `src/discord/`, `src/slack/`, `src/signal/`, etc.): Per-platform integrations
+- **Agent Runtime** (`src/agents/`): Pi agent core, tool/block streaming, sandbox management
+- **CLI** (`src/cli/`): Commander.js-based CLI with program builder in `src/cli/program.ts`
+- **Config** (`src/config/`): YAML-based configuration, session store, state migrations
+- **Media** (`src/media/`, `src/media-understanding/`): Image/audio/video processing pipeline
 
 ## Project Structure & Module Organization
 
@@ -49,17 +83,46 @@
 
 ## Build, Test, and Development Commands
 
-- Runtime baseline: Node **22+** (keep Node + Bun paths working).
-- Install deps: `pnpm install`
-- Pre-commit hooks: `prek install` (runs same checks as CI)
-- Also supported: `bun install` (keep `pnpm-lock.yaml` + Bun patching in sync when touching deps/patches).
-- Prefer Bun for TypeScript execution (scripts, dev, tests): `bun <file.ts>` / `bunx <tool>`.
-- Run CLI in dev: `pnpm openclaw ...` (bun) or `pnpm dev`.
-- Node remains supported for running built output (`dist/*`) and production installs.
-- Mac packaging (dev): `scripts/package-mac-app.sh` defaults to current arch. Release checklist: `docs/platforms/mac/release.md`.
-- Type-check/build: `pnpm build`
-- Lint/format: `pnpm check`
-- Tests: `pnpm test` (vitest); coverage: `pnpm test:coverage`
+**Runtime:** Node 22+ (keep Node + Bun paths working)
+
+**Setup:**
+```bash
+pnpm install              # Install dependencies
+pnpm ui:build             # Build UI (auto-installs UI deps)
+pnpm build                # Full build (canvas bundle + tsdown + helpers)
+prek install              # Install pre-commit hooks (same checks as CI)
+```
+
+**Development:**
+```bash
+pnpm openclaw <cmd>       # Run CLI in dev mode (TypeScript via tsx)
+pnpm gateway:watch        # Gateway with auto-reload on TS changes
+pnpm gateway:dev          # Dev mode with OPENCLAW_SKIP_CHANNELS
+```
+
+**Testing:**
+```bash
+pnpm test                 # Run Vitest tests
+pnpm test:watch           # Watch mode
+pnpm test:coverage        # With coverage (70% threshold)
+OPENCLAW_LIVE_TEST=1 pnpm test:live  # Tests with real API keys
+```
+
+**Quality:**
+```bash
+pnpm check                # Type-check + lint + format (CI gate)
+pnpm lint                 # Oxlint type-aware checks
+pnpm format:fix           # Auto-fix formatting (Oxfmt)
+```
+
+**macOS App:**
+- Dev packaging: `scripts/package-mac-app.sh`
+- Release checklist: `docs/platforms/mac/release.md`
+
+**Notes:**
+- Prefer Bun for TypeScript execution: `bun <file.ts>` / `bunx <tool>`
+- `pnpm build` produces `dist/` for Node/packaged binary
+- Keep `pnpm-lock.yaml` + Bun patching in sync when touching deps
 
 ## Coding Style & Naming Conventions
 
